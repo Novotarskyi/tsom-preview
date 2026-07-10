@@ -522,6 +522,7 @@ let S = {
   contact: { name: '', phone: '' }, fulfil: null, submitted: false, missContact: false, missFulfil: false, slotDay: 0, slot: null, missSlot: false
 };
 let toastT = null;
+let sheetShown = false, cartShown = false; // entry animations play only on the open transition
 
 const t = () => T[S.lang];
 const lineTotal = l => { const p = byId(l.pid); let v = p.price; p.groups.forEach(g => { const cid = l.sel[g]; if (cid) { const ch = GROUPS[g].choices.find(c => c.id === cid); if (ch) v += ch.delta; } }); return v * l.qty; };
@@ -719,7 +720,7 @@ function groupHTML(p, gid) {
   </div>`;
 }
 
-function productHTML(p) {
+function productHTML(p, shown) {
   const L = t();
   const tint = CATS.find(c => c.id === p.cat).tint;
   const imgs = [p.img, p.img2].filter(Boolean);
@@ -735,7 +736,7 @@ function productHTML(p) {
   const groups = p.groups.map(g => groupHTML(p, g)).join('');
   const total = configTotal(p);
   return `
-  <div class="sheet prodsheet" role="dialog" aria-modal="true" aria-label="${esc(p.name)}">
+  <div class="sheet prodsheet ${shown ? 'on' : ''}" role="dialog" aria-modal="true" aria-label="${esc(p.name)}">
     <button class="xclose" data-close aria-label="Close">✕</button>
     <div class="galcol desktoponly">
       <div class="gal"><div class="galtrack">${slides}</div></div>${thumbs}
@@ -764,7 +765,7 @@ function productHTML(p) {
   </div>`;
 }
 
-function cartHTML() {
+function cartHTML(shown) {
   const L = t();
   if (S.submitted) {
     const n = maxLead();
@@ -773,7 +774,7 @@ function cartHTML() {
     const next3s = [next3[0], next3[1] + (slotH ? ' · ' + slotH : '')];
     const sprinkles = Array.from({ length: 10 }, (_, i) =>
       `<span class="spr" style="left:${18 + i * 7}%;top:8px;animation-delay:${(i % 5) * .09 + .35}s"></span>`).join('');
-    return `<div class="sheet cartsheet on" role="dialog" aria-modal="true" aria-label="${L.sentTitle}">
+    return `<div class="sheet cartsheet ${shown ? 'on' : ''}" role="dialog" aria-modal="true" aria-label="${L.sentTitle}">
       <button class="xclose" data-close aria-label="Close">✕</button>
       <div class="sheetscroll">
         <div class="sent">${sprinkles}
@@ -819,7 +820,7 @@ function cartHTML() {
        <div class="steps">${L.steps.map((s, i) => `<div class="step"><span class="stepn">${i + 1}</span><div>${s}</div></div>`).join('')}</div>
        <p class="quote">${L.courierWhy}</p></div>`
     : '';
-  return `<div class="sheet cartsheet on" role="dialog" aria-modal="true" aria-label="${L.yourOrder}">
+  return `<div class="sheet cartsheet ${shown ? 'on' : ''}" role="dialog" aria-modal="true" aria-label="${L.yourOrder}">
     <button class="xclose" data-close aria-label="Close">✕</button>
     <div class="grab"></div>
     <div class="sheetscroll">
@@ -849,10 +850,13 @@ function cartHTML() {
 function render(keepScroll) {
   const y = keepScroll ? window.scrollY : 0;
   let html = catalogHTML();
-  if (S.activeId) html += `<div class="backdrop on" data-close></div>` + productHTML(byId(S.activeId));
-  else if (S.cartOpen) html += `<div class="backdrop on" data-close></div>` + cartHTML();
+  if (S.activeId) html += `<div class="backdrop on" data-close></div>` + productHTML(byId(S.activeId), sheetShown);
+  else if (S.cartOpen) html += `<div class="backdrop on" data-close></div>` + cartHTML(cartShown);
   app.innerHTML = html;
-  if (S.activeId) requestAnimationFrame(() => { const sh = app.querySelector('.prodsheet'); if (sh) sh.classList.add('on'); });
+  if (S.activeId && !sheetShown) requestAnimationFrame(() => { const sh = app.querySelector('.prodsheet'); if (sh) sh.classList.add('on'); });
+  if (S.cartOpen && !cartShown) requestAnimationFrame(() => { const sh = app.querySelector('.cartsheet'); if (sh) sh.classList.add('on'); });
+  sheetShown = !!S.activeId;
+  cartShown = !!S.cartOpen;
   document.body.style.overflow = (S.activeId || S.cartOpen) ? 'hidden' : '';
   if (keepScroll) window.scrollTo(0, y);
   const gt = document.getElementById('galtrack');
